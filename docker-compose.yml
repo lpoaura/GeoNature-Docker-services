@@ -1,3 +1,6 @@
+x-restart-policy: &restart-policy
+  restart: ${RESTART_POLICY:-unless-stopped}
+
 x-defaults: &defaults
   user: ${UID}:${GID}
 
@@ -22,6 +25,7 @@ x-geonature-backend-env: &geonature-backend-env
 x-geonature-backend-defaults: &geonature-backend-defaults
   <<: *defaults
   image: ${GEONATURE_BACKEND_EXTRA_IMAGE}
+    # build: ./
   depends_on:
     <<: *geonature-depends-on-defaults
   volumes:
@@ -33,6 +37,7 @@ x-geonature-backend-defaults: &geonature-backend-defaults
 
 services:
   redis:
+    <<: *restart-policy
     image: ${REDIS_IMAGE:-redis:7-alpine}
     volumes:
       - redis:/data
@@ -46,7 +51,7 @@ services:
 
 
   usershub:
-    <<: *defaults
+    <<: [*restart-policy, *defaults]
     image: ${USERSHUB_IMAGE}
     depends_on:
       geonature-install-db:
@@ -72,7 +77,7 @@ services:
 
 
   taxhub:
-    <<: *defaults
+    <<: [*restart-policy, *defaults]
     image: ${TAXHUB_IMAGE}
     depends_on:
       geonature-install-db:
@@ -100,7 +105,8 @@ services:
 
   geonature-install-db:
     <<: *geonature-backend-defaults
-    command: "geonature permissions supergrant --yes ${GEONATURE_SUPERGRANT_ARGS:---help}"
+      #command: "geonature permissions supergrant --yes ${GEONATURE_SUPERGRANT_ARGS:---help}"
+    entrypoint: ["bash","-c","echo 'ok'"]
     environment:
       <<: *geonature-backend-env
       srid_local: ${GEONATURE_DB_LOCAL_SRID}
@@ -118,7 +124,7 @@ services:
 
 
   geonature-worker:
-    <<: *geonature-backend-defaults
+    <<: [*restart-policy, *geonature-backend-defaults]
     depends_on:
       <<: *geonature-depends-on-defaults
       geonature-install-db:
@@ -130,7 +136,7 @@ services:
 
 
   geonature-backend:
-    <<: *geonature-backend-defaults
+    <<: [*restart-policy, *geonature-backend-defaults]
     depends_on:
       <<: *geonature-depends-on-defaults
       geonature-install-db:
@@ -158,6 +164,7 @@ services:
 
 
   geonature-frontend:
+    <<: *restart-policy
     image: ${GEONATURE_FRONTEND_EXTRA_IMAGE}
     environment:
       - NGINX_LOCATION=${GEONATURE_FRONTEND_PREFIX}
